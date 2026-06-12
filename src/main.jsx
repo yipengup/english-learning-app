@@ -3,6 +3,7 @@ import { createRoot } from 'react-dom/client';
 import { BookOpen, CheckCircle2, Menu, X, RotateCcw, Layers3 } from 'lucide-react';
 import './styles/app.css';
 import { grammarCatalog, grammarGroups } from './data/grammarCatalog';
+import { foundationLessonDetails } from './data/grammarLessons/foundationLessons';
 import { buildQuestionBank } from './data/questionBank';
 import { hasCuratedQuestionBank } from './data/questionBanks';
 import { loadState, saveState } from './shared/storage';
@@ -16,6 +17,8 @@ function App() {
   const [menuOpen, setMenuOpen] = useState(false);
   const [practice, setPractice] = useState(null);
   const active = grammarCatalog.find(g => g.id === activeId) || grammarCatalog[0];
+  const lessonOverride = foundationLessonDetails[active.id];
+  const displayActive = lessonOverride ? { ...active, ...lessonOverride } : active;
   const activeIndex = grammarCatalog.findIndex(g => g.id === active.id);
   const bank = useMemo(() => buildQuestionBank(active.id, active.title), [active.id, active.title]);
   const activeAnswers = getGrammarAnswers(state, active.id);
@@ -60,7 +63,7 @@ function App() {
   return <div className="app">
     <aside className={`sidebar ${menuOpen ? 'open' : ''}`}>
       <div className="sideTop"><strong>语法路径</strong><button onClick={() => setMenuOpen(false)}><X size={20}/></button></div>
-      <div className="syllabusMeta">9 大模块 · {grammarCatalog.length} 个语法小节</div>
+      <div className="syllabusMeta">{grammarGroups.length} 大模块 · {grammarCatalog.length} 个语法小节</div>
       {grammarGroups.map(group => <div className="categoryBlock" key={group.id}>
         <div className="categoryTitle"><span>{group.title}</span><small>{group.topics.length} 节</small></div>
         <p className="categoryDesc">{group.description}</p>
@@ -74,8 +77,8 @@ function App() {
     </aside>
     <main>
       <header className="topbar"><button className="menuBtn" onClick={() => setMenuOpen(true)}><Menu size={24}/></button><div><h1>系统英语语法学习</h1><p>主流语法体系：词法 → 句法 → 时态语态 → 从句 → 非谓语 → 写作语法</p></div></header>
-      {!practice ? <LearningView grammar={active} progress={progress} curated={curated} activeIndex={activeIndex} onStart={startPractice}/> :
-        <PracticeView practice={practice} grammar={active} onSubmit={submitAnswer} onNext={nextQuestion} onEnd={() => setPractice(null)} onNextSection={goNextSection}/>} 
+      {!practice ? <LearningView grammar={displayActive} progress={progress} curated={curated} activeIndex={activeIndex} onStart={startPractice}/> :
+        <PracticeView practice={practice} grammar={displayActive} onSubmit={submitAnswer} onNext={nextQuestion} onEnd={() => setPractice(null)} onNextSection={goNextSection}/>} 
     </main>
   </div>;
 }
