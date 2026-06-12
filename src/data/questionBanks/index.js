@@ -1,9 +1,25 @@
 import { buildBeVerbBank } from './beVerbs';
 import { buildPresentSimpleBank } from './presentSimple';
 import { buildFallbackBank } from './bankFactory';
+import {
+  buildPartsOfSpeechBank,
+  buildSentenceElementsBank,
+  buildSentenceTypesBank,
+  buildBasicSentencePatternsBank,
+  buildThereBeBank,
+  buildQuestionsNegativesBank,
+  buildWordOrderBasicsBank
+} from './foundationBasics';
 
 const registry = {
+  'parts-of-speech': buildPartsOfSpeechBank,
+  'sentence-elements': buildSentenceElementsBank,
+  'sentence-types': buildSentenceTypesBank,
+  'basic-sentence-patterns': buildBasicSentencePatternsBank,
   'be-verbs': buildBeVerbBank,
+  'there-be': buildThereBeBank,
+  'questions-negatives': buildQuestionsNegativesBank,
+  'word-order-basics': buildWordOrderBasicsBank,
   'present-simple': buildPresentSimpleBank
 };
 
