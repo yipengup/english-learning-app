@@ -74,23 +74,18 @@ function App() {
     </aside>
     <main>
       <header className="topbar"><button className="menuBtn" onClick={() => setMenuOpen(true)}><Menu size={24}/></button><div><h1>系统英语语法学习</h1><p>主流语法体系：词法 → 句法 → 时态语态 → 从句 → 非谓语 → 写作语法</p></div></header>
-      {!practice ? <LearningView grammar={active} progress={progress} curated={curated} activeIndex={activeIndex}/> :
+      {!practice ? <LearningView grammar={active} progress={progress} curated={curated} activeIndex={activeIndex} onStart={startPractice}/> :
         <PracticeView practice={practice} grammar={active} onSubmit={submitAnswer} onNext={nextQuestion} onEnd={() => setPractice(null)} onNextSection={goNextSection}/>} 
     </main>
   </div>;
 }
 
-function LearningView({ grammar, progress, curated, activeIndex }) {
+function LearningView({ grammar, progress, curated, activeIndex, onStart }) {
   return <section className="content">
     <div className="hero"><div><span className="tag">第 {activeIndex + 1} 节 · {grammar.level}</span><h2>{grammar.title}</h2><p>{grammar.summary}</p><p className="path"><b>{grammar.categoryTitle}</b><br/>{grammar.categoryDescription}</p><p className="quality"><Layers3 size={16}/>题库状态：{curated ? '已接入人工精选题库 + 变体扩展' : '暂用通用题库，待人工精选题库接入'}</p></div><div className="stats"><b>{progress.done}/{progress.total}</b><small>已练习</small><b>{progress.wrong}</b><small>错题</small><b>{progress.completionRate}%</b><small>完成度</small></div></div>
     {grammar.sections.map(sec => <article className="card" key={sec.heading}><h3>{sec.heading}</h3><p>{sec.body}</p>{sec.examples.map(ex => <div className="example" key={ex.en}><b>{ex.en}</b><span>{ex.zh}</span><p>{ex.note}</p></div>)}</article>)}
-    <div className="actions"><button className="primary" onClick={() => window.dispatchEvent(new CustomEvent('start-practice'))} style={{display:'none'}}></button><StartButtons /></div>
+    <div className="actions"><button className="primary" onClick={() => onStart('unanswered-first')}><BookOpen size={20}/>开始练习本语法</button><button className="secondary" onClick={() => onStart('wrong-first')}>优先复习错题</button></div>
   </section>;
-}
-
-function StartButtons() {
-  const appRoot = document.querySelector('.app');
-  return <><button className="primary" onClick={() => appRoot?.dispatchEvent(new CustomEvent('startPractice', { detail: 'unanswered-first' }))}><BookOpen size={20}/>开始练习本语法</button><button className="secondary" onClick={() => appRoot?.dispatchEvent(new CustomEvent('startPractice', { detail: 'wrong-first' }))}>优先复习错题</button></>;
 }
 
 function PracticeView({ practice, grammar, onSubmit, onNext, onEnd, onNextSection }) {
@@ -100,11 +95,6 @@ function PracticeView({ practice, grammar, onSubmit, onNext, onEnd, onNextSectio
     <article className="card question"><div className="questionMeta"><span>{q.difficulty}</span>{q.tags?.map(tag => <span key={tag}>{tag}</span>)}</div><h3>{q.stem}</h3><div className="options">{q.options.map(opt => <button key={opt} disabled={practice.checked} className={practice.checked ? (opt === q.answer ? 'right' : opt === practice.selected ? 'wrong' : '') : ''} onClick={() => onSubmit(opt)}>{opt}</button>)}</div></article>
     {practice.checked && <article className="card answer"><h3>{practice.selected === q.answer ? <><CheckCircle2/> 回答正确</> : '回答错误'}</h3><p><b>题目翻译：</b>{q.translation}</p><p><b>正确答案：</b>{q.answer}</p><p><b>语法解析：</b>{q.explanation}</p><p><b>本题定位：</b>这道题考查「{grammar.title}」中的 {q.tags?.join(' / ') || '核心规则'}。做题时先看主语、时间标志、句子结构，再排除不符合语法规则的选项。</p><div className="actions"><button className="secondary" onClick={onNext}><RotateCcw size={18}/>继续练习</button><button className="primary" onClick={onNextSection}>进入下一小节语法</button></div></article>}
   </section>;
-}
-
-function AppWithPracticeEvents() {
-  const [key, setKey] = useState(0);
-  return <App key={key} onReload={() => setKey(key + 1)} />;
 }
 
 createRoot(document.getElementById('root')).render(<App />);
