@@ -83,10 +83,87 @@ function App() {
   </div>;
 }
 
+const leadTerms = ['名词', '动词', '形容词', '副词', '介词', '连词', '限定词', '代词', '主语', '谓语', '宾语', '表语', '定语', '状语', '补语', '陈述句', '一般疑问句', '特殊疑问句', '祈使句', '感叹句', '第一步', '第二步', '第三步', '最后'];
+
+function renderInline(text) {
+  const markdownParts = String(text).split(/(\*\*[^*]+\*\*)/g).filter(Boolean);
+  return markdownParts.map((part, index) => {
+    if (part.startsWith('**') && part.endsWith('**')) {
+      return <strong key={index} className="markedText">{part.slice(2, -2)}</strong>;
+    }
+
+    const term = leadTerms.find(item => part.startsWith(item));
+    if (term) {
+      return <React.Fragment key={index}><strong className="markedText">{term}</strong>{part.slice(term.length)}</React.Fragment>;
+    }
+
+    return <React.Fragment key={index}>{part}</React.Fragment>;
+  });
+}
+
+function splitLongBody(text) {
+  const normalized = String(text || '').trim();
+  if (!normalized) return [];
+
+  if (normalized.includes('\n')) {
+    return normalized.split('\n').map(line => line.trim()).filter(Boolean).map(line => {
+      if (/^[-*]\s+/.test(line)) return { type: 'li', text: line.replace(/^[-*]\s+/, '') };
+      if (/^\d+[.)、]\s*/.test(line)) return { type: 'li', text: line.replace(/^\d+[.)、]\s*/, '') };
+      return { type: 'p', text: line };
+    });
+  }
+
+  const sentenceParts = normalized.split('。').map(item => item.trim()).filter(Boolean);
+  const blocks = [];
+
+  sentenceParts.forEach(sentence => {
+    const colonMatch = sentence.match(/^(.{2,24}(?:包括|有|是|为|如下|先问))[:：](.+)$/);
+    const shouldList = sentence.includes('；') && (sentence.length > 42 || colonMatch);
+
+    if (!shouldList) {
+      blocks.push({ type: 'p', text: `${sentence}。` });
+      return;
+    }
+
+    if (colonMatch) {
+      blocks.push({ type: 'p', text: `${colonMatch[1]}：` });
+      colonMatch[2].split('；').map(item => item.trim()).filter(Boolean).forEach(item => blocks.push({ type: 'li', text: item }));
+    } else {
+      sentence.split('；').map(item => item.trim()).filter(Boolean).forEach(item => blocks.push({ type: 'li', text: item }));
+    }
+  });
+
+  return blocks;
+}
+
+function RichText({ text }) {
+  const blocks = splitLongBody(text);
+  const rendered = [];
+  let listItems = [];
+
+  function flushList(keyPrefix) {
+    if (!listItems.length) return;
+    rendered.push(<ul className="smartList" key={`list-${keyPrefix}`}>{listItems.map((item, index) => <li key={index}>{renderInline(item)}</li>)}</ul>);
+    listItems = [];
+  }
+
+  blocks.forEach((block, index) => {
+    if (block.type === 'li') {
+      listItems.push(block.text);
+      return;
+    }
+    flushList(index);
+    rendered.push(<p className="bodyBlock" key={`p-${index}`}>{renderInline(block.text)}</p>);
+  });
+
+  flushList('end');
+  return <div className="richText">{rendered}</div>;
+}
+
 function LearningView({ grammar, progress, curated, activeIndex, onStart }) {
   return <section className="content">
     <div className="hero"><div><span className="tag">第 {activeIndex + 1} 节 · {grammar.level}</span><h2>{grammar.title}</h2><p>{grammar.summary}</p><p className="path"><b>{grammar.categoryTitle}</b><br/>{grammar.categoryDescription}</p><p className="quality"><Layers3 size={16}/>题库状态：{curated ? '已接入人工精选题库 + 变体扩展' : '暂用通用题库，待人工精选题库接入'}</p></div><div className="stats"><b>{progress.done}/{progress.total}</b><small>已练习</small><b>{progress.wrong}</b><small>错题</small><b>{progress.completionRate}%</b><small>完成度</small></div></div>
-    {grammar.sections.map(sec => <article className="card" key={sec.heading}><h3>{sec.heading}</h3><p>{sec.body}</p>{sec.examples.map(ex => <div className="example" key={ex.en}><b>{ex.en}</b><span>{ex.zh}</span><p>{ex.note}</p></div>)}</article>)}
+    {grammar.sections.map(sec => <article className="card" key={sec.heading}><h3>{sec.heading}</h3><RichText text={sec.body}/>{sec.examples.map(ex => <div className="example" key={ex.en}><b>{ex.en}</b><span>{ex.zh}</span><p>{ex.note}</p></div>)}</article>)}
     <div className="actions"><button className="primary" onClick={() => onStart('unanswered-first')}><BookOpen size={20}/>开始练习本语法</button><button className="secondary" onClick={() => onStart('wrong-first')}>优先复习错题</button></div>
   </section>;
 }
