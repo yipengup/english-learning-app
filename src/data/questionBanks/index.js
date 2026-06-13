@@ -1,8 +1,8 @@
+import { buildPartsOfSpeechBank } from './partsOfSpeech';
 import { buildBeVerbBank } from './beVerbs';
 import { buildPresentSimpleBank } from './presentSimple';
 import { buildFallbackBank } from './bankFactory';
 import {
-  buildPartsOfSpeechBank,
   buildSentenceElementsBank,
   buildSentenceTypesBank,
   buildBasicSentencePatternsBank,
