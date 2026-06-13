@@ -17,14 +17,128 @@ export function getQuestionStatus(questionId, answers = {}) {
   return answers[questionId] || null;
 }
 
-export function createPracticeSession(questionBank, answers = {}, strategy = PRACTICE_STRATEGIES.SEQUENTIAL) {
+function getQuestionById(questionBank, questionId) {
+  return questionBank.find(question => question.id === questionId) || null;
+}
+
+function buildSequentialQueue(questionBank, answers = {}) {
+  const unansweredIndex = questionBank.findIndex(question => !answers[question.id]);
+
+  if (unansweredIndex >= 0) {
+    return {
+      queue: questionBank.slice(unansweredIndex).map(question => question.id),
+      mode: '首轮推进',
+      startOffset: unansweredIndex,
+      total: questionBank.length
+    };
+  }
+
   return {
-    current: pickNextQuestion(questionBank, answers, strategy),
+    queue: questionBank.map(question => question.id),
+    mode: '复习轮',
+    startOffset: 0,
+    total: questionBank.length
+  };
+}
+
+function buildWrongQueue(questionBank, answers = {}) {
+  const queue = questionBank.filter(question => answers[question.id]?.correct === false).map(question => question.id);
+  return {
+    queue,
+    mode: '错题清理',
+    startOffset: 0,
+    total: queue.length
+  };
+}
+
+function buildRandomReviewQueue(questionBank, answers = {}) {
+  const unanswered = questionBank.filter(question => !answers[question.id]);
+  const pool = unanswered.length ? unanswered : questionBank;
+  const queue = shuffle(pool).slice(0, 10).map(question => question.id);
+
+  return {
+    queue,
+    mode: unanswered.length ? '未做题冲刺' : '10题冲刺',
+    startOffset: 0,
+    total: queue.length
+  };
+}
+
+function buildPracticeQueue(questionBank, answers = {}, strategy = PRACTICE_STRATEGIES.SEQUENTIAL) {
+  if (strategy === PRACTICE_STRATEGIES.WRONG_ONLY || strategy === 'wrong-first') {
+    return buildWrongQueue(questionBank, answers);
+  }
+
+  if (strategy === PRACTICE_STRATEGIES.RANDOM_REVIEW || strategy === 'unanswered-first') {
+    return buildRandomReviewQueue(questionBank, answers);
+  }
+
+  return buildSequentialQueue(questionBank, answers);
+}
+
+function getPracticeProgress(session, currentIndex = session.index || 0) {
+  const total = session.total || session.queue?.length || 0;
+  const currentNumber = total ? Math.min((session.startOffset || 0) + currentIndex + 1, total) : 0;
+  const remaining = total ? Math.max(total - currentNumber, 0) : 0;
+  const percent = total ? Math.round((currentNumber / total) * 100) : 0;
+
+  return {
+    mode: session.mode,
+    total,
+    currentNumber,
+    remaining,
+    percent
+  };
+}
+
+export function createPracticeSession(questionBank, answers = {}, strategy = PRACTICE_STRATEGIES.SEQUENTIAL) {
+  const queueMeta = buildPracticeQueue(questionBank, answers, strategy);
+  const baseSession = {
+    current: null,
     selected: null,
     checked: false,
     count: 0,
     startedAt: Date.now(),
-    strategy
+    strategy,
+    index: 0,
+    ...queueMeta
+  };
+
+  const firstQuestion = getQuestionById(questionBank, queueMeta.queue[0]);
+  return {
+    ...baseSession,
+    current: shuffleOptions(firstQuestion),
+    progress: getPracticeProgress(baseSession, 0)
+  };
+}
+
+export function advancePracticeSession(session, questionBank) {
+  const nextIndex = (session.index || 0) + 1;
+  const nextQuestion = getQuestionById(questionBank, session.queue?.[nextIndex]);
+
+  if (!nextQuestion) {
+    return {
+      ...session,
+      current: null,
+      selected: null,
+      checked: false,
+      index: nextIndex,
+      progress: {
+        ...getPracticeProgress(session, Math.max((session.total || 1) - 1, 0)),
+        remaining: 0,
+        percent: 100
+      }
+    };
+  }
+
+  return {
+    ...session,
+    current: shuffleOptions(nextQuestion),
+    selected: null,
+    checked: false,
+    count: session.count + 1,
+    index: nextIndex,
+    progress: getPracticeProgress(session, nextIndex)
   };
 }
 
