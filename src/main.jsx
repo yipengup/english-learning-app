@@ -2,23 +2,29 @@ import React, { useMemo, useState } from 'react';
 import { createRoot } from 'react-dom/client';
 import { BookOpen, CheckCircle2, Menu, X, RotateCcw, Layers3 } from 'lucide-react';
 import './styles/app.css';
+import './styles/modules.css';
 import { grammarCatalog, grammarGroups } from './data/grammarCatalog';
 import { foundationLessonDetails } from './data/grammarLessons/foundationLessons';
 import { buildQuestionBank } from './data/questionBank';
 import { hasCuratedQuestionBank } from './data/questionBanks';
+import { getLearningModule, getModuleStatusLabel, learningModules } from './data/learningModules';
 import { loadState, saveState } from './shared/storage';
 import { createPracticeSession, gradeAnswer, getProgressSummary, mergeAnswerRecord, pickNextQuestion } from './domain/practiceEngine';
 import { getGrammarAnswers, updateGrammarAnswer } from './domain/progressRepository';
 
 const APP_NAME = '系统英语学习';
 const APP_SUBTITLE = '语法 · 阅读 · 词汇 · 写作能力逐步构建';
+const DEFAULT_MODULE_ID = 'grammar';
 
 function App() {
   const initial = loadState();
   const [state, setState] = useState(initial);
+  const [activeModuleId, setActiveModuleId] = useState(initial.activeModule || DEFAULT_MODULE_ID);
   const [activeId, setActiveId] = useState(initial.lastGrammarId || grammarCatalog[0].id);
   const [menuOpen, setMenuOpen] = useState(false);
   const [practice, setPractice] = useState(null);
+
+  const activeModule = getLearningModule(activeModuleId);
   const active = grammarCatalog.find(g => g.id === activeId) || grammarCatalog[0];
   const lessonOverride = foundationLessonDetails[active.id];
   const displayActive = lessonOverride ? { ...active, ...lessonOverride } : active;
@@ -33,14 +39,22 @@ function App() {
     setState(saved);
   }
 
+  function chooseModule(moduleId) {
+    setActiveModuleId(moduleId);
+    setPractice(null);
+    persist({ ...state, activeModule: moduleId, lastGrammarId: activeId });
+  }
+
   function chooseGrammar(id) {
+    setActiveModuleId(DEFAULT_MODULE_ID);
     setActiveId(id);
     setMenuOpen(false);
     setPractice(null);
-    persist({ ...state, lastGrammarId: id });
+    persist({ ...state, activeModule: DEFAULT_MODULE_ID, lastGrammarId: id });
   }
 
   function startPractice(strategy = 'unanswered-first') {
+    setActiveModuleId(DEFAULT_MODULE_ID);
     setPractice(createPracticeSession(bank, activeAnswers, strategy));
   }
 
@@ -66,24 +80,71 @@ function App() {
   return <div className="app">
     <aside className={`sidebar ${menuOpen ? 'open' : ''}`}>
       <div className="sideTop"><strong>学习路径</strong><button onClick={() => setMenuOpen(false)}><X size={20}/></button></div>
-      <div className="syllabusMeta">{grammarGroups.length} 大模块 · {grammarCatalog.length} 个学习小节</div>
-      {grammarGroups.map(group => <div className="categoryBlock" key={group.id}>
-        <div className="categoryTitle"><span>{group.title}</span><small>{group.topics.length} 节</small></div>
-        <p className="categoryDesc">{group.description}</p>
-        {group.topics.map(g => {
-          const index = grammarCatalog.findIndex(item => item.id === g.id);
-          return <button key={g.id} className={`grammarItem ${g.id === active.id ? 'active' : ''}`} onClick={() => chooseGrammar(g.id)}>
-            <span className="index">{index + 1}</span><span><b>{g.title}</b><small>{g.level} · {g.summary}</small></span>
-          </button>;
-        })}
-      </div>)}
+      <ModuleSwitcher activeModuleId={activeModuleId} onSelect={chooseModule}/>
+      {activeModuleId === DEFAULT_MODULE_ID ? <GrammarMenu activeId={active.id} onChoose={chooseGrammar}/> : <ModuleMenuPlaceholder module={activeModule} onBackToGrammar={() => chooseModule(DEFAULT_MODULE_ID)}/>} 
     </aside>
     <main>
       <header className="topbar"><button className="menuBtn" onClick={() => setMenuOpen(true)}><Menu size={24}/></button><div><h1>{APP_NAME}</h1><p>{APP_SUBTITLE}</p></div></header>
-      {!practice ? <LearningView grammar={displayActive} progress={progress} curated={curated} activeIndex={activeIndex} onStart={startPractice}/> :
-        <PracticeView practice={practice} grammar={displayActive} onSubmit={submitAnswer} onNext={nextQuestion} onEnd={() => setPractice(null)} onNextSection={goNextSection}/>} 
+      {activeModuleId !== DEFAULT_MODULE_ID ? <ModulePlaceholder module={activeModule} onBackToGrammar={() => chooseModule(DEFAULT_MODULE_ID)}/> : (!practice ? <LearningView grammar={displayActive} progress={progress} curated={curated} activeIndex={activeIndex} onStart={startPractice}/> :
+        <PracticeView practice={practice} grammar={displayActive} onSubmit={submitAnswer} onNext={nextQuestion} onEnd={() => setPractice(null)} onNextSection={goNextSection}/>)}
     </main>
   </div>;
+}
+
+function ModuleSwitcher({ activeModuleId, onSelect }) {
+  return <section className="moduleSwitch">
+    <div className="moduleSwitchHeader">学习模块</div>
+    <div className="moduleGrid">
+      {learningModules.map(module => <button key={module.id} className={`modulePill ${module.id === activeModuleId ? 'active' : ''}`} onClick={() => onSelect(module.id)}>
+        <span>{module.shortTitle}</span>
+        <small>{getModuleStatusLabel(module.status)}</small>
+      </button>)}
+    </div>
+  </section>;
+}
+
+function GrammarMenu({ activeId, onChoose }) {
+  return <>
+    <div className="syllabusMeta">语法模块 · {grammarGroups.length} 大模块 · {grammarCatalog.length} 个学习小节</div>
+    {grammarGroups.map(group => <div className="categoryBlock" key={group.id}>
+      <div className="categoryTitle"><span>{group.title}</span><small>{group.topics.length} 节</small></div>
+      <p className="categoryDesc">{group.description}</p>
+      {group.topics.map(g => {
+        const index = grammarCatalog.findIndex(item => item.id === g.id);
+        return <button key={g.id} className={`grammarItem ${g.id === activeId ? 'active' : ''}`} onClick={() => onChoose(g.id)}>
+          <span className="index">{index + 1}</span><span><b>{g.title}</b><small>{g.level} · {g.summary}</small></span>
+        </button>;
+      })}
+    </div>)}
+  </>;
+}
+
+function ModuleMenuPlaceholder({ module, onBackToGrammar }) {
+  return <div className="moduleMenuPlaceholder">
+    <div className="syllabusMeta">{module.title}模块 · {getModuleStatusLabel(module.status)}</div>
+    <p>{module.description}</p>
+    <button className="secondary moduleBackBtn" onClick={onBackToGrammar}>返回语法学习</button>
+  </div>;
+}
+
+function ModulePlaceholder({ module, onBackToGrammar }) {
+  return <section className="content modulePlaceholderPage">
+    <article className="card moduleHeroCard">
+      <span className="tag">{getModuleStatusLabel(module.status)}</span>
+      <h2>{module.title}模块</h2>
+      <p>{module.description}</p>
+      {module.id === 'reading' ? <div className="moduleRoadmap">
+        <h3>阅读模块将和语法这样联动</h3>
+        <ul>
+          <li><b>文章精读</b>：每篇文章标注相关语法点和高频词。</li>
+          <li><b>长难句分析</b>：遇到定语从句、非谓语、时态难点时可跳转到语法小节。</li>
+          <li><b>阅读理解题</b>：复用当前选择题练习引擎，后续扩展判断题、主旨题、细节题。</li>
+          <li><b>弱点回流</b>：阅读中反复出错的语法点，会推荐回语法模块复习。</li>
+        </ul>
+      </div> : <div className="moduleRoadmap"><h3>后续规划</h3><p>该模块会在保留当前语法学习进度的基础上逐步接入，不会影响已有语法题库和错题记录。</p></div>}
+      <div className="actions"><button className="primary" onClick={onBackToGrammar}><BookOpen size={20}/>继续语法学习</button></div>
+    </article>
+  </section>;
 }
 
 const leadTerms = ['名词', '动词', '形容词', '副词', '介词', '连词', '限定词', '代词', '主语', '谓语', '宾语', '表语', '定语', '状语', '补语', '陈述句', '一般疑问句', '特殊疑问句', '祈使句', '感叹句', '第一步', '第二步', '第三步', '最后'];
