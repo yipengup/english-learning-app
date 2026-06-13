@@ -10,7 +10,7 @@ import { buildQuestionBank } from './data/questionBank';
 import { hasCuratedQuestionBank } from './data/questionBanks';
 import { getLearningModule, getModuleStatusLabel, learningModules } from './data/learningModules';
 import { loadState, saveState } from './shared/storage';
-import { createPracticeSession, gradeAnswer, getProgressSummary, mergeAnswerRecord, pickNextQuestion, PRACTICE_STRATEGIES } from './domain/practiceEngine';
+import { advancePracticeSession, createPracticeSession, gradeAnswer, getProgressSummary, mergeAnswerRecord, PRACTICE_STRATEGIES } from './domain/practiceEngine';
 import { getGrammarAnswers, updateGrammarAnswer } from './domain/progressRepository';
 
 const APP_NAME = '系统英语学习';
@@ -71,13 +71,12 @@ function App() {
   }
 
   function nextQuestion() {
-    const latest = loadState().answers?.[active.id] || {};
-    const current = pickNextQuestion(bank, latest, practice.strategy);
-    if (!current) {
+    const nextSession = advancePracticeSession(practice, bank);
+    if (!nextSession.current) {
       setPractice(null);
       return;
     }
-    setPractice({ ...practice, current, selected: null, checked: false, count: practice.count + 1 });
+    setPractice(nextSession);
   }
 
   function goNextSection() {
@@ -271,6 +270,24 @@ function getStrategyLabel(strategy) {
   return '顺序练习';
 }
 
+function PracticeProgress({ progress }) {
+  if (!progress?.total) return null;
+
+  return <div className="practiceProgress" aria-label={`当前进度 ${progress.currentNumber} / ${progress.total}`}>
+    <div className="practiceProgressHeader">
+      <span>{progress.mode}</span>
+      <b>第 {progress.currentNumber} / {progress.total} 题</b>
+    </div>
+    <div className="practiceProgressTrack">
+      <div className="practiceProgressFill" style={{ width: `${progress.percent}%` }} />
+    </div>
+    <div className="practiceProgressFooter">
+      <span>已完成 {progress.percent}%</span>
+      <span>剩余 {progress.remaining} 道</span>
+    </div>
+  </div>;
+}
+
 function PracticeView({ practice, grammar, onSubmit, onNext, onEnd, onNextSection }) {
   const q = practice.current;
   if (!q) {
@@ -292,6 +309,8 @@ function PracticeView({ practice, grammar, onSubmit, onNext, onEnd, onNextSectio
       </div>
       <button className="ghost" onClick={onEnd}>随时结束练习</button>
     </div>
+
+    <PracticeProgress progress={practice.progress}/>
 
     <article className="card question practiceCard">
       <div className="questionMeta"><span>{q.difficulty}</span>{q.tags?.map(tag => <span key={tag}>{tag}</span>)}</div>
