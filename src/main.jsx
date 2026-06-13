@@ -10,6 +10,9 @@ import { loadState, saveState } from './shared/storage';
 import { createPracticeSession, gradeAnswer, getProgressSummary, mergeAnswerRecord, pickNextQuestion } from './domain/practiceEngine';
 import { getGrammarAnswers, updateGrammarAnswer } from './domain/progressRepository';
 
+const APP_NAME = '系统英语学习';
+const APP_SUBTITLE = '语法 · 阅读 · 词汇 · 写作能力逐步构建';
+
 function App() {
   const initial = loadState();
   const [state, setState] = useState(initial);
@@ -62,8 +65,8 @@ function App() {
 
   return <div className="app">
     <aside className={`sidebar ${menuOpen ? 'open' : ''}`}>
-      <div className="sideTop"><strong>语法路径</strong><button onClick={() => setMenuOpen(false)}><X size={20}/></button></div>
-      <div className="syllabusMeta">{grammarGroups.length} 大模块 · {grammarCatalog.length} 个语法小节</div>
+      <div className="sideTop"><strong>学习路径</strong><button onClick={() => setMenuOpen(false)}><X size={20}/></button></div>
+      <div className="syllabusMeta">{grammarGroups.length} 大模块 · {grammarCatalog.length} 个学习小节</div>
       {grammarGroups.map(group => <div className="categoryBlock" key={group.id}>
         <div className="categoryTitle"><span>{group.title}</span><small>{group.topics.length} 节</small></div>
         <p className="categoryDesc">{group.description}</p>
@@ -76,7 +79,7 @@ function App() {
       </div>)}
     </aside>
     <main>
-      <header className="topbar"><button className="menuBtn" onClick={() => setMenuOpen(true)}><Menu size={24}/></button><div><h1>系统英语语法学习</h1><p>主流语法体系：词法 → 句法 → 时态语态 → 从句 → 非谓语 → 写作语法</p></div></header>
+      <header className="topbar"><button className="menuBtn" onClick={() => setMenuOpen(true)}><Menu size={24}/></button><div><h1>{APP_NAME}</h1><p>{APP_SUBTITLE}</p></div></header>
       {!practice ? <LearningView grammar={displayActive} progress={progress} curated={curated} activeIndex={activeIndex} onStart={startPractice}/> :
         <PracticeView practice={practice} grammar={displayActive} onSubmit={submitAnswer} onNext={nextQuestion} onEnd={() => setPractice(null)} onNextSection={goNextSection}/>} 
     </main>
@@ -170,10 +173,23 @@ function LearningView({ grammar, progress, curated, activeIndex, onStart }) {
 
 function PracticeView({ practice, grammar, onSubmit, onNext, onEnd, onNextSection }) {
   const q = practice.current;
-  return <section className="content practice">
-    <div className="practiceTop"><div><span className="tag">{grammar.title}</span><h2>选择题练习</h2><p>当前策略：{practice.strategy === 'wrong-first' ? '错题优先' : '未做题优先'}</p></div><button className="ghost" onClick={onEnd}>随时结束练习</button></div>
-    <article className="card question"><div className="questionMeta"><span>{q.difficulty}</span>{q.tags?.map(tag => <span key={tag}>{tag}</span>)}</div><h3>{q.stem}</h3><div className="options">{q.options.map(opt => <button key={opt} disabled={practice.checked} className={practice.checked ? (opt === q.answer ? 'right' : opt === practice.selected ? 'wrong' : '') : ''} onClick={() => onSubmit(opt)}>{opt}</button>)}</div></article>
-    {practice.checked && <article className="card answer"><h3>{practice.selected === q.answer ? <><CheckCircle2/> 回答正确</> : '回答错误'}</h3><p><b>题目翻译：</b>{q.translation}</p><p><b>正确答案：</b>{q.answer}</p><p><b>语法解析：</b>{q.explanation}</p><p><b>本题定位：</b>这道题考查「{grammar.title}」中的 {q.tags?.join(' / ') || '核心规则'}。做题时先看主语、时间标志、句子结构，再排除不符合语法规则的选项。</p><div className="actions"><button className="secondary" onClick={onNext}><RotateCcw size={18}/>继续练习</button><button className="primary" onClick={onNextSection}>进入下一小节语法</button></div></article>}
+  return <section className="content practice practicePage">
+    <div className="practiceTop practiceHero">
+      <div>
+        <span className="tag">{grammar.title}</span>
+        <h2>选择题练习</h2>
+        <p>当前策略：{practice.strategy === 'wrong-first' ? '错题优先' : '未做题优先'}。先判断空格在句子里承担什么功能，再看选项词类和结构。</p>
+      </div>
+      <button className="ghost" onClick={onEnd}>随时结束练习</button>
+    </div>
+
+    <article className="card question practiceCard">
+      <div className="questionMeta"><span>{q.difficulty}</span>{q.tags?.map(tag => <span key={tag}>{tag}</span>)}</div>
+      <h3 className="questionStem">{q.stem}</h3>
+      <div className="options optionStack">{q.options.map(opt => <button key={opt} disabled={practice.checked} className={practice.checked ? (opt === q.answer ? 'right' : opt === practice.selected ? 'wrong' : '') : ''} onClick={() => onSubmit(opt)}>{opt}</button>)}</div>
+    </article>
+
+    {practice.checked && <article className="card answer answerCard"><h3>{practice.selected === q.answer ? <><CheckCircle2/> 回答正确</> : '回答错误'}</h3><p><b>题目翻译：</b>{q.translation}</p><p><b>正确答案：</b>{q.answer}</p><p><b>语法解析：</b>{q.explanation}</p><p><b>本题定位：</b>这道题考查「{grammar.title}」中的 {q.tags?.join(' / ') || '核心规则'}。做题时先看主语、时间标志、句子结构，再排除不符合语法规则的选项。</p><div className="actions"><button className="secondary" onClick={onNext}><RotateCcw size={18}/>继续练习</button><button className="primary" onClick={onNextSection}>进入下一小节语法</button></div></article>}
   </section>;
 }
 
