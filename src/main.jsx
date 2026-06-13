@@ -3,13 +3,14 @@ import { createRoot } from 'react-dom/client';
 import { BookOpen, CheckCircle2, Menu, X, RotateCcw, Layers3 } from 'lucide-react';
 import './styles/app.css';
 import './styles/modules.css';
+import './styles/practiceStats.css';
 import { grammarCatalog, grammarGroups } from './data/grammarCatalog';
 import { foundationLessonDetails } from './data/grammarLessons/foundationLessons';
 import { buildQuestionBank } from './data/questionBank';
 import { hasCuratedQuestionBank } from './data/questionBanks';
 import { getLearningModule, getModuleStatusLabel, learningModules } from './data/learningModules';
 import { loadState, saveState } from './shared/storage';
-import { createPracticeSession, gradeAnswer, getProgressSummary, mergeAnswerRecord, pickNextQuestion } from './domain/practiceEngine';
+import { createPracticeSession, gradeAnswer, getProgressSummary, mergeAnswerRecord, pickNextQuestion, PRACTICE_STRATEGIES } from './domain/practiceEngine';
 import { getGrammarAnswers, updateGrammarAnswer } from './domain/progressRepository';
 
 const APP_NAME = '系统英语学习';
@@ -53,9 +54,11 @@ function App() {
     persist({ ...state, activeModule: DEFAULT_MODULE_ID, lastGrammarId: id });
   }
 
-  function startPractice(strategy = 'unanswered-first') {
+  function startPractice(strategy = PRACTICE_STRATEGIES.SEQUENTIAL) {
     setActiveModuleId(DEFAULT_MODULE_ID);
-    setPractice(createPracticeSession(bank, activeAnswers, strategy));
+    const session = createPracticeSession(bank, activeAnswers, strategy);
+    if (!session.current) return;
+    setPractice(session);
   }
 
   function submitAnswer(option) {
@@ -69,7 +72,12 @@ function App() {
 
   function nextQuestion() {
     const latest = loadState().answers?.[active.id] || {};
-    setPractice({ ...practice, current: pickNextQuestion(bank, latest, practice.strategy), selected: null, checked: false, count: practice.count + 1 });
+    const current = pickNextQuestion(bank, latest, practice.strategy);
+    if (!current) {
+      setPractice(null);
+      return;
+    }
+    setPractice({ ...practice, current, selected: null, checked: false, count: practice.count + 1 });
   }
 
   function goNextSection() {
@@ -225,21 +233,62 @@ function RichText({ text }) {
 }
 
 function LearningView({ grammar, progress, curated, activeIndex, onStart }) {
+  const statusLabel = progress.done === 0 ? '未开始' : progress.done < progress.total ? '进行中' : progress.wrong > 0 ? '复习中' : '首轮完成';
+  const wrongDisabled = progress.wrong === 0;
+
   return <section className="content">
-    <div className="hero"><div><span className="tag">第 {activeIndex + 1} 节 · {grammar.level}</span><h2>{grammar.title}</h2><p>{grammar.summary}</p><p className="path"><b>{grammar.categoryTitle}</b><br/>{grammar.categoryDescription}</p><p className="quality"><Layers3 size={16}/>题库状态：{curated ? '已接入人工精选题库 + 变体扩展' : '暂用通用题库，待人工精选题库接入'}</p></div><div className="stats"><b>{progress.done}/{progress.total}</b><small>已练习</small><b>{progress.wrong}</b><small>错题</small><b>{progress.completionRate}%</b><small>完成度</small></div></div>
+    <div className="hero">
+      <div>
+        <span className="tag">第 {activeIndex + 1} 节 · {grammar.level}</span>
+        <h2>{grammar.title}</h2>
+        <p>{grammar.summary}</p>
+        <p className="path"><b>{grammar.categoryTitle}</b><br/>{grammar.categoryDescription}</p>
+        <p className="quality"><Layers3 size={16}/>题库状态：{curated ? '已接入人工精选题库' : '暂用通用题库，待人工精选题库接入'}</p>
+        <div className="studyStatus">本小节状态：<b>{statusLabel}</b> · 首轮完成 {progress.completionRate}% · 错题 {progress.wrong} 道 · 还需 {progress.pending} 道完成首轮</div>
+      </div>
+      <div className="stats statGrid">
+        <div><b>{progress.done}/{progress.total}</b><small>进度</small></div>
+        <div><b>{progress.accuracyRate}%</b><small>正确率</small></div>
+        <div><b>{progress.wrong}</b><small>错题</small></div>
+        <div><b>{progress.pending}</b><small>待练</small></div>
+        <div><b>{progress.mastered}</b><small>已掌握</small></div>
+        <div><b>{progress.totalAttempts}</b><small>累计作答</small></div>
+      </div>
+    </div>
     {grammar.sections.map(sec => <article className="card" key={sec.heading}><h3>{sec.heading}</h3><RichText text={sec.body}/>{sec.examples.map(ex => <div className="example" key={ex.en}><b>{ex.en}</b><span>{ex.zh}</span><p>{ex.note}</p></div>)}</article>)}
-    <div className="actions"><button className="primary" onClick={() => onStart('unanswered-first')}><BookOpen size={20}/>开始练习本语法</button><button className="secondary" onClick={() => onStart('wrong-first')}>优先复习错题</button></div>
+    <div className="actions practiceActions">
+      <button className="primary" onClick={() => onStart(PRACTICE_STRATEGIES.SEQUENTIAL)}><BookOpen size={20}/>继续顺序练习</button>
+      <button className="secondary" disabled={wrongDisabled} title={wrongDisabled ? '暂无错题，先完成一轮练习吧' : ''} onClick={() => onStart(PRACTICE_STRATEGIES.WRONG_ONLY)}>练当前小节错题</button>
+      <button className="secondary" onClick={() => onStart(PRACTICE_STRATEGIES.RANDOM_REVIEW)}>随机冲刺 10 题</button>
+    </div>
+    {wrongDisabled && <p className="actionHint">暂无错题，先完成一轮练习吧。</p>}
   </section>;
+}
+
+function getStrategyLabel(strategy) {
+  if (strategy === PRACTICE_STRATEGIES.WRONG_ONLY || strategy === 'wrong-first') return '当前小节错题专项';
+  if (strategy === PRACTICE_STRATEGIES.RANDOM_REVIEW) return '随机冲刺';
+  return '顺序练习';
 }
 
 function PracticeView({ practice, grammar, onSubmit, onNext, onEnd, onNextSection }) {
   const q = practice.current;
+  if (!q) {
+    return <section className="content practice practicePage">
+      <article className="card answerCard">
+        <h3>当前没有可练习的题目</h3>
+        <p>当前模式下没有可用题目。可以先返回本小节继续顺序练习。</p>
+        <div className="actions"><button className="primary" onClick={onEnd}>返回本小节</button></div>
+      </article>
+    </section>;
+  }
+
   return <section className="content practice practicePage">
     <div className="practiceTop practiceHero">
       <div>
         <span className="tag">{grammar.title}</span>
         <h2>选择题练习</h2>
-        <p>当前策略：{practice.strategy === 'wrong-first' ? '错题优先' : '未做题优先'}。先判断空格在句子里承担什么功能，再看选项词类和结构。</p>
+        <p>当前策略：{getStrategyLabel(practice.strategy)}。先判断目标词在句子里承担什么功能，再看选项词类和结构。</p>
       </div>
       <button className="ghost" onClick={onEnd}>随时结束练习</button>
     </div>
