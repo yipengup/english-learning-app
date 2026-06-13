@@ -1,1 +1,1 @@
-{"name":"系统英语语法学习","short_name":"英语语法","start_url":"/english-learning-app/","display":"standalone","background_color":"#ffffff","theme_color":"#2563eb","icons":[{"src":"/english-learning-app/icon.svg","sizes":"any","type":"image/svg+xml"}]}
+{"name":"系统英语学习","short_name":"英语学习","start_url":"/english-learning-app/","display":"standalone","background_color":"#ffffff","theme_color":"#2563eb","description":"逐步覆盖语法、阅读、词汇、写作等英语能力的系统学习应用。","icons":[{"src":"/english-learning-app/icon.svg","sizes":"any","type":"image/svg+xml"}]}
