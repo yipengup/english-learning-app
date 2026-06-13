@@ -1,0 +1,57 @@
+.studyStatus {
+  margin-top: 12px;
+  background: #f8fbff;
+  border: 1px solid #dbeafe;
+  border-radius: 16px;
+  padding: 10px 12px;
+  color: #40516d;
+  line-height: 1.6;
+}
+
+.studyStatus b {
+  color: #1d4ed8;
+}
+
+.statGrid {
+  min-width: 260px;
+  grid-template-columns: 1fr 1fr;
+  gap: 10px;
+  text-align: left;
+}
+
+.statGrid div {
+  background: #fff;
+  border: 1px solid #e5eaf3;
+  border-radius: 14px;
+  padding: 10px 12px;
+}
+
+.statGrid b {
+  display: block;
+  font-size: 20px;
+  line-height: 1.2;
+}
+
+.statGrid small {
+  display: block;
+  margin: 4px 0 0;
+}
+
+.practiceActions button:disabled {
+  cursor: not-allowed;
+  opacity: .48;
+}
+
+.actionHint {
+  margin: -4px 0 18px;
+  color: #64748b;
+  font-size: 14px;
+}
+
+@media(max-width:820px) {
+  .statGrid {
+    margin-top: 16px;
+    min-width: 0;
+    grid-template-columns: 1fr 1fr;
+  }
+}
