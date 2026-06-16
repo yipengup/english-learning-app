@@ -103,16 +103,16 @@ function buildSentenceElementQuestions() {
       ['句子成分', role]
     ),
     q(
-      `Which part is NOT the subject in "${sentence}"?`,
-      `在“${sentence}”中，哪一部分不是主语？`,
-      predicate,
-      [subject, `${subject} ${predicate}`, focus],
-      `${subject} 才是主语；${predicate} 是谓语核心，不是主语。`,
-      ['句子成分', '主语辨析']
+      `Which part in "${sentence}" is "${role}"?`,
+      `在“${sentence}”中，哪一部分是 ${role}？`,
+      focus,
+      [subject, predicate, support],
+      `${roleExplanation(focus, role)}本题要求找出承担该功能的具体词或短语。`,
+      ['句子成分', role, '成分定位']
     ),
     q(
-      `Which part is closest to the main verb in "${sentence}"?`,
-      `在“${sentence}”中，哪个部分最接近句子核心动词？`,
+      `Which part is the predicate core in "${sentence}"?`,
+      `在“${sentence}”中，谓语核心是哪一部分？`,
       predicate,
       [subject, focus, support],
       `分析句子成分时先锁定谓语核心。本句核心动词或系动词是 ${predicate}。`,

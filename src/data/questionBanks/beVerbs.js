@@ -43,8 +43,8 @@ const beCases = [
   ['Tom and Jack', 'are', 'classmates', 'Tom 和 Jack', '是同班同学'],
   ['Either the teacher or the students', 'are', 'in the classroom', '要么老师要么学生们', '在教室里'],
   ['Neither the students nor the teacher', 'is', 'late', '学生们和老师都', '没有迟到'],
-  ['There', 'is', 'a mistake in this sentence', '这个句子里', '有一个错误'],
-  ['There', 'are', 'three examples in this lesson', '这节课里', '有三个例子'],
+  ['The lesson', 'is', 'easy to follow', '这节课', '容易跟上'],
+  ['These rules', 'are', 'important for beginners', '这些规则', '对初学者很重要'],
   ['A cup of tea', 'is', 'on the table', '一杯茶', '在桌上'],
   ['Many chairs', 'are', 'around the table', '许多椅子', '在桌子周围'],
   ['Some water', 'is', 'in the bottle', '一些水', '在瓶子里'],
@@ -58,6 +58,10 @@ function cap(word) {
   return word[0].toUpperCase() + word.slice(1);
 }
 
+function questionSubject(subject) {
+  return ['You', 'He', 'She', 'It', 'We', 'They'].includes(subject) ? subject.toLowerCase() : subject;
+}
+
 function subjectRule(subject, be) {
   if (subject === 'I') return '主语 I 在一般现在时中固定搭配 am。';
   if (subject === 'You') return 'you 不管表示“你”还是“你们”，一般现在时 be 动词都用 are。';
@@ -68,13 +72,16 @@ function subjectRule(subject, be) {
 function buildBeVerbQuestions() {
   return beCases.flatMap(([subject, be, complement, subjectZh, complementZh], index) => {
     const questionStart = cap(be);
+    const subjectInQuestion = questionSubject(subject);
     const negative = `${subject} ${be} not ${complement}.`;
     const positive = `${subject} ${be} ${complement}.`;
+    const wrongBeOne = be === 'is' ? 'are' : 'is';
+    const wrongBeTwo = be === 'am' ? 'are' : 'am';
     return [
       q(`${subject} ___ ${complement}.`, `${subjectZh}${complementZh}。`, be, ['am', 'is', 'are', 'be'], `${subjectRule(subject, be)}${complement} 是表语或地点成分。`, ['be', '主谓一致']),
-      q(`Choose the correct be-verb sentence for "${subjectZh}${complementZh}".`, `选择表达“${subjectZh}${complementZh}”的正确句子。`, positive, [`${subject} am ${complement}.`, `${subject} is ${complement}.`, `${subject} are ${complement}.`], `${subjectRule(subject, be)}正确句子是 ${positive}`, ['be', '正确句']),
+      q(`Choose the correct be-verb sentence for "${subjectZh}${complementZh}".`, `选择表达“${subjectZh}${complementZh}”的正确句子。`, positive, [`${subject} ${wrongBeOne} ${complement}.`, `${subject} ${wrongBeTwo} ${complement}.`, `${subject} be ${complement}.`], `${subjectRule(subject, be)}正确句子是 ${positive}`, ['be', '正确句']),
       q(`Make a negative sentence: ${positive}`, `把“${positive}”改成否定句。`, negative, [`${subject} does not ${complement}.`, `${subject} not ${be} ${complement}.`, `${subject} do not ${complement}.`], `be 动词否定直接在 be 后加 not，不需要 do/does。`, ['be', '否定句']),
-      q(`Make a yes-no question: ${positive}`, `把“${positive}”改成一般疑问句。`, `${questionStart} ${subject} ${complement}?`, [`Do ${subject} ${complement}?`, `Does ${subject} ${complement}?`, `${subject} ${be} ${complement}?`], `be 动词疑问句把 ${be} 提到主语前。`, ['be', '疑问句']),
+      q(`Make a yes-no question: ${positive}`, `把“${positive}”改成一般疑问句。`, `${questionStart} ${subjectInQuestion} ${complement}?`, [`Do ${subjectInQuestion} ${complement}?`, `Does ${subjectInQuestion} ${complement}?`, `${subject} ${be} ${complement}?`], `be 动词疑问句把 ${be} 提到主语前。`, ['be', '疑问句']),
       q(`Which word controls the be-verb in item ${index + 1}: "${subject} ___ ${complement}"?`, `第 ${index + 1} 题中，哪个部分决定 be 动词？`, subject, [complement, be, 'not'], `be 动词形式要和主语一致，本题看 ${subject}。`, ['be', '主语']),
       q(`Which rule explains "${positive}"?`, `哪条规则解释“${positive}”？`, subjectRule(subject, be), ['be 后必须接动词原形', '所有主语都用 are', '所有单词后都加 do'], `本题核心是主语和 be 动词一致。`, ['be', '规则']),
       q(`Which option avoids the common mistake with "${subject}"?`, `哪个选项避免了 ${subject} 搭配 be 的常见错误？`, positive, [`${subject} be ${complement}.`, `${subject} do ${complement}.`, `${subject} ${be === 'is' ? 'are' : 'is'} ${complement}.`], `不能用中文“是/在”直接套 be，要看主语选择 am/is/are。`, ['be', '易错']),
