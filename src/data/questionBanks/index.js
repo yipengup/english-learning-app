@@ -11,6 +11,9 @@ import {
   buildWordOrderBasicsBank
 } from './foundationBasics';
 
+// Exam Engine V2 (new)
+import wordOrderExamBank from './wordOrder_exam_v2';
+
 const registry = {
   'parts-of-speech': buildPartsOfSpeechBank,
   'sentence-elements': buildSentenceElementsBank,
@@ -20,7 +23,10 @@ const registry = {
   'there-be': buildThereBeBank,
   'questions-negatives': buildQuestionsNegativesBank,
   'word-order-basics': buildWordOrderBasicsBank,
-  'present-simple': buildPresentSimpleBank
+  'present-simple': buildPresentSimpleBank,
+
+  // Exam Engine V2 additions
+  'word-order-exam': () => wordOrderExamBank
 };
 
 export function getQuestionBank(grammarId, grammarTitle) {
