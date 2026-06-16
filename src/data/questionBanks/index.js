@@ -1,9 +1,9 @@
 import { buildPartsOfSpeechBank } from './partsOfSpeech';
+import { buildSentenceElementsBank } from './sentenceElements';
 import { buildBeVerbBank } from './beVerbs';
 import { buildPresentSimpleBank } from './presentSimple';
 import { buildFallbackBank } from './bankFactory';
 import {
-  buildSentenceElementsBank,
   buildSentenceTypesBank,
   buildBasicSentencePatternsBank,
   buildThereBeBank,
