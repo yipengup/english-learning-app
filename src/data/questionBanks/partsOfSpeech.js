@@ -259,7 +259,13 @@ const generatedQuestions = groups.flatMap(group => group.items.map(([sentence, w
   index < 8 ? '入门' : index < 16 ? '基础' : '进阶'
 )));
 
-const partsOfSpeechQuestions = [...generatedQuestions, ...contrastQuestions];
+const TARGET_QUESTION_COUNT = 200;
+const selectedContrastQuestions = contrastQuestions.slice(0, TARGET_QUESTION_COUNT - generatedQuestions.length);
+const partsOfSpeechQuestions = [...generatedQuestions, ...selectedContrastQuestions];
+
+if (partsOfSpeechQuestions.length !== TARGET_QUESTION_COUNT) {
+  throw new Error(`parts-of-speech needs ${TARGET_QUESTION_COUNT} questions, got ${partsOfSpeechQuestions.length}`);
+}
 
 export function buildPartsOfSpeechBank() {
   return validateQuestionBank(partsOfSpeechQuestions.map((question, index) => normalizeQuestion({
