@@ -1,6 +1,6 @@
-import React, { useMemo, useState } from 'react';
+import React, { useMemo, useRef, useState } from 'react';
 import { createRoot } from 'react-dom/client';
-import { BookOpen, CheckCircle2, Menu, X, RotateCcw, Layers3 } from 'lucide-react';
+import { BookOpen, CheckCircle2, Download, Menu, Upload, X, RotateCcw, Layers3 } from 'lucide-react';
 import './styles/app.css';
 import './styles/modules.css';
 import './styles/practiceStats.css';
@@ -11,7 +11,7 @@ import { hasCuratedQuestionBank } from './data/questionBanks';
 import { getLearningModule, getModuleStatusLabel, learningModules } from './data/learningModules';
 import { loadState, saveState } from './shared/storage';
 import { CORE_ROUND_SIZE, MASTERY_ACCURACY_TARGET, REVIEW_ROUND_SIZE, advancePracticeSession, createPracticeSession, gradeAnswer, getProgressSummary, mergeAnswerRecord, PRACTICE_STRATEGIES } from './domain/practiceEngine';
-import { getGrammarAnswers, updateGrammarAnswer } from './domain/progressRepository';
+import { getGrammarAnswers, importProgressExport, serializeProgressExport, updateGrammarAnswer } from './domain/progressRepository';
 
 const APP_NAME = '系统英语学习';
 const APP_SUBTITLE = '语法 · 阅读 · 词汇 · 写作能力逐步构建';
@@ -84,6 +84,13 @@ function App() {
     else setPractice(null);
   }
 
+  function applyImportedProgress(nextState) {
+    setState(nextState);
+    setActiveModuleId(nextState.activeModule || DEFAULT_MODULE_ID);
+    setActiveId(nextState.lastGrammarId || grammarCatalog[0].id);
+    setPractice(null);
+  }
+
   return <div className="app">
     <aside className={`sidebar ${menuOpen ? 'open' : ''}`}>
       <div className="sideTop"><strong>学习路径</strong><button onClick={() => setMenuOpen(false)}><X size={20}/></button></div>
@@ -91,10 +98,55 @@ function App() {
       {activeModuleId === DEFAULT_MODULE_ID ? <GrammarMenu activeId={active.id} onChoose={chooseGrammar}/> : <ModuleMenuPlaceholder module={activeModule} onBackToGrammar={() => chooseModule(DEFAULT_MODULE_ID)}/>} 
     </aside>
     <main>
-      <header className="topbar"><button className="menuBtn" onClick={() => setMenuOpen(true)}><Menu size={24}/></button><div><h1>{APP_NAME}</h1><p>{APP_SUBTITLE}</p></div></header>
+      <header className="topbar"><button className="menuBtn" onClick={() => setMenuOpen(true)}><Menu size={24}/></button><div><h1>{APP_NAME}</h1><p>{APP_SUBTITLE}</p></div><ProgressPortability state={state} onImport={applyImportedProgress}/></header>
       {activeModuleId !== DEFAULT_MODULE_ID ? <ModulePlaceholder module={activeModule} onBackToGrammar={() => chooseModule(DEFAULT_MODULE_ID)}/> : (!practice ? <LearningView grammar={displayActive} progress={progress} curated={curated} activeIndex={activeIndex} onStart={startPractice}/> :
         <PracticeView practice={practice} grammar={displayActive} onSubmit={submitAnswer} onNext={nextQuestion} onEnd={() => setPractice(null)} onNextSection={goNextSection}/>)}
     </main>
+  </div>;
+}
+
+function ProgressPortability({ state, onImport }) {
+  const fileInputRef = useRef(null);
+  const [message, setMessage] = useState('');
+
+  function exportProgress() {
+    const blob = new Blob([serializeProgressExport(state)], { type: 'application/json' });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement('a');
+    const date = new Date().toISOString().slice(0, 10);
+    link.href = url;
+    link.download = `english-learning-progress-${date}.json`;
+    link.click();
+    URL.revokeObjectURL(url);
+    setMessage('Exported');
+  }
+
+  function importProgress(event) {
+    const file = event.target.files?.[0];
+    event.target.value = '';
+    if (!file) return;
+
+    const reader = new FileReader();
+    reader.onload = () => {
+      try {
+        const nextState = importProgressExport(String(reader.result || ''), state);
+        onImport(nextState);
+        setMessage('Imported');
+      } catch {
+        setMessage('Import failed');
+      }
+    };
+    reader.onerror = () => setMessage('Import failed');
+    reader.readAsText(file);
+  }
+
+  return <div className="progressPortability" aria-label="Progress data tools">
+    <div className="progressPortabilityActions">
+      <button className="ghost iconAction" title="Export progress" onClick={exportProgress}><Download size={18}/><span>Export</span></button>
+      <button className="ghost iconAction" title="Import progress" onClick={() => fileInputRef.current?.click()}><Upload size={18}/><span>Import</span></button>
+      <input ref={fileInputRef} className="fileInput" type="file" accept="application/json,.json" onChange={importProgress}/>
+    </div>
+    {message && <small>{message}</small>}
   </div>;
 }
 
