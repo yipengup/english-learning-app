@@ -8,6 +8,10 @@ export const PRACTICE_STRATEGIES = {
   RANDOM_REVIEW: 'random-review'
 };
 
+export const CORE_ROUND_SIZE = 40;
+export const REVIEW_ROUND_SIZE = 10;
+export const MASTERY_ACCURACY_TARGET = 85;
+
 export function shuffleOptions(question) {
   if (!question) return null;
   return { ...question, options: shuffle(question.options) };
@@ -25,19 +29,25 @@ function buildSequentialQueue(questionBank, answers = {}) {
   const unansweredIndex = questionBank.findIndex(question => !answers[question.id]);
 
   if (unansweredIndex >= 0) {
+    const roundQueue = questionBank.slice(unansweredIndex, unansweredIndex + CORE_ROUND_SIZE);
+
     return {
-      queue: questionBank.slice(unansweredIndex).map(question => question.id),
-      mode: '首轮推进',
-      startOffset: unansweredIndex,
-      total: questionBank.length
+      queue: roundQueue.map(question => question.id),
+      mode: `本轮 ${roundQueue.length} 题`,
+      startOffset: 0,
+      total: roundQueue.length,
+      bankTotal: questionBank.length
     };
   }
 
+  const reviewQueue = questionBank.slice(0, CORE_ROUND_SIZE);
+
   return {
-    queue: questionBank.map(question => question.id),
-    mode: '复习轮',
+    queue: reviewQueue.map(question => question.id),
+    mode: `复习轮 ${reviewQueue.length} 题`,
     startOffset: 0,
-    total: questionBank.length
+    total: reviewQueue.length,
+    bankTotal: questionBank.length
   };
 }
 
@@ -54,11 +64,11 @@ function buildWrongQueue(questionBank, answers = {}) {
 function buildRandomReviewQueue(questionBank, answers = {}) {
   const unanswered = questionBank.filter(question => !answers[question.id]);
   const pool = unanswered.length ? unanswered : questionBank;
-  const queue = shuffle(pool).slice(0, 10).map(question => question.id);
+  const queue = shuffle(pool).slice(0, REVIEW_ROUND_SIZE).map(question => question.id);
 
   return {
     queue,
-    mode: unanswered.length ? '未做题冲刺' : '10题冲刺',
+    mode: unanswered.length ? '未做题冲刺' : `${REVIEW_ROUND_SIZE}题冲刺`,
     startOffset: 0,
     total: queue.length
   };
@@ -216,6 +226,11 @@ export function mergeAnswerRecord(previous, result) {
 
 export function getProgressSummary(questionBank, answers = {}) {
   const answered = questionBank.filter(q => answers[q.id]);
+  const coreQuestions = questionBank.slice(0, Math.min(CORE_ROUND_SIZE, questionBank.length));
+  const coreAnswered = coreQuestions.filter(q => answers[q.id]);
+  const coreCorrectLatest = coreAnswered.filter(q => answers[q.id]?.correct === true).length;
+  const coreAccuracyRate = coreAnswered.length ? Math.round((coreCorrectLatest / coreAnswered.length) * 100) : 0;
+  const coreCompletionRate = coreQuestions.length ? Math.round((coreAnswered.length / coreQuestions.length) * 100) : 0;
   const wrong = answered.filter(q => answers[q.id]?.correct === false);
   const mastered = answered.filter(q => answers[q.id]?.mastered || answers[q.id]?.streakCorrect >= 2);
   const totalAttempts = answered.reduce((sum, q) => sum + (answers[q.id]?.attempts || 0), 0);
@@ -227,6 +242,12 @@ export function getProgressSummary(questionBank, answers = {}) {
   return {
     total: questionBank.length,
     done: answered.length,
+    coreTotal: coreQuestions.length,
+    coreDone: coreAnswered.length,
+    corePending: Math.max(coreQuestions.length - coreAnswered.length, 0),
+    coreAccuracyRate,
+    coreCompletionRate,
+    masteryAccuracyTarget: MASTERY_ACCURACY_TARGET,
     wrong: wrong.length,
     mastered: mastered.length,
     pending,

@@ -10,7 +10,7 @@ import { buildQuestionBank } from './data/questionBank';
 import { hasCuratedQuestionBank } from './data/questionBanks';
 import { getLearningModule, getModuleStatusLabel, learningModules } from './data/learningModules';
 import { loadState, saveState } from './shared/storage';
-import { advancePracticeSession, createPracticeSession, gradeAnswer, getProgressSummary, mergeAnswerRecord, PRACTICE_STRATEGIES } from './domain/practiceEngine';
+import { CORE_ROUND_SIZE, MASTERY_ACCURACY_TARGET, REVIEW_ROUND_SIZE, advancePracticeSession, createPracticeSession, gradeAnswer, getProgressSummary, mergeAnswerRecord, PRACTICE_STRATEGIES } from './domain/practiceEngine';
 import { getGrammarAnswers, updateGrammarAnswer } from './domain/progressRepository';
 
 const APP_NAME = '系统英语学习';
@@ -232,8 +232,9 @@ function RichText({ text }) {
 }
 
 function LearningView({ grammar, progress, curated, activeIndex, onStart }) {
-  const statusLabel = progress.done === 0 ? '未开始' : progress.done < progress.total ? '进行中' : progress.wrong > 0 ? '复习中' : '首轮完成';
+  const statusLabel = progress.coreDone === 0 ? '未开始' : progress.coreDone < progress.coreTotal ? '核心首轮进行中' : progress.wrong > 0 ? '错题复习中' : '核心首轮完成';
   const wrongDisabled = progress.wrong === 0;
+  const needsReinforcement = progress.coreDone >= progress.coreTotal && progress.coreAccuracyRate < MASTERY_ACCURACY_TARGET;
 
   return <section className="content">
     <div className="hero">
@@ -243,31 +244,32 @@ function LearningView({ grammar, progress, curated, activeIndex, onStart }) {
         <p>{grammar.summary}</p>
         <p className="path"><b>{grammar.categoryTitle}</b><br/>{grammar.categoryDescription}</p>
         <p className="quality"><Layers3 size={16}/>题库状态：{curated ? '已接入人工精选题库' : '暂用通用题库，待人工精选题库接入'}</p>
-        <div className="studyStatus">本小节状态：<b>{statusLabel}</b> · 首轮完成 {progress.completionRate}% · 错题 {progress.wrong} 道 · 还需 {progress.pending} 道完成首轮</div>
+        <div className="studyStatus">本小节状态：<b>{statusLabel}</b> · 核心首轮 {progress.coreDone}/{progress.coreTotal} 题 · 掌握线 {progress.masteryAccuracyTarget}% · 题库储备 {progress.total} 题</div>
+        {needsReinforcement && <div className="studyStatus">建议补弱：核心首轮正确率 {progress.coreAccuracyRate}%，低于 {progress.masteryAccuracyTarget}%，优先清理错题后再做 {REVIEW_ROUND_SIZE} 题随机复习。</div>}
       </div>
       <div className="stats statGrid">
-        <div><b>{progress.done}/{progress.total}</b><small>进度</small></div>
-        <div><b>{progress.accuracyRate}%</b><small>正确率</small></div>
+        <div><b>{progress.coreDone}/{progress.coreTotal}</b><small>核心首轮</small></div>
+        <div><b>{progress.coreAccuracyRate}%</b><small>首轮正确率</small></div>
         <div><b>{progress.wrong}</b><small>错题</small></div>
-        <div><b>{progress.pending}</b><small>待练</small></div>
+        <div><b>{progress.total}</b><small>题库储备</small></div>
         <div><b>{progress.mastered}</b><small>已掌握</small></div>
         <div><b>{progress.totalAttempts}</b><small>累计作答</small></div>
       </div>
     </div>
     {grammar.sections.map(sec => <article className="card" key={sec.heading}><h3>{sec.heading}</h3><RichText text={sec.body}/>{sec.examples.map(ex => <div className="example" key={ex.en}><b>{ex.en}</b><span>{ex.zh}</span><p>{ex.note}</p></div>)}</article>)}
     <div className="actions practiceActions">
-      <button className="primary" onClick={() => onStart(PRACTICE_STRATEGIES.SEQUENTIAL)}><BookOpen size={20}/>继续顺序练习</button>
+      <button className="primary" onClick={() => onStart(PRACTICE_STRATEGIES.SEQUENTIAL)}><BookOpen size={20}/>开始本轮 {Math.min(CORE_ROUND_SIZE, Math.max(progress.pending, progress.coreTotal))} 题</button>
       <button className="secondary" disabled={wrongDisabled} title={wrongDisabled ? '暂无错题，先完成一轮练习吧' : ''} onClick={() => onStart(PRACTICE_STRATEGIES.WRONG_ONLY)}>练当前小节错题</button>
-      <button className="secondary" onClick={() => onStart(PRACTICE_STRATEGIES.RANDOM_REVIEW)}>随机冲刺 10 题</button>
+      <button className="secondary" onClick={() => onStart(PRACTICE_STRATEGIES.RANDOM_REVIEW)}>随机复习 {REVIEW_ROUND_SIZE} 题</button>
     </div>
-    {wrongDisabled && <p className="actionHint">暂无错题，先完成一轮练习吧。</p>}
+    {wrongDisabled && <p className="actionHint">暂无错题，先完成核心首轮练习吧。系统会按每轮最多 {CORE_ROUND_SIZE} 题推进，不会一次塞满整个题库。</p>}
   </section>;
 }
 
 function getStrategyLabel(strategy) {
   if (strategy === PRACTICE_STRATEGIES.WRONG_ONLY || strategy === 'wrong-first') return '当前小节错题专项';
   if (strategy === PRACTICE_STRATEGIES.RANDOM_REVIEW) return '随机冲刺';
-  return '顺序练习';
+  return `本轮 ${CORE_ROUND_SIZE} 题`;
 }
 
 function PracticeProgress({ progress }) {
